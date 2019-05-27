@@ -60,8 +60,10 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
     }
     // Load a network.
     public void onCameraViewStarted(int width, int height) {
+        // 修改此处文件名
         String proto = getPath("MobileNetSSD_deploy.prototxt", this);
         String weights = getPath("MobileNetSSD_deploy.caffemodel", this);
+
         net = Dnn.readNetFromCaffe(proto, weights);
         Log.i(TAG, "Network loaded successfully");
     }
@@ -71,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
         final float WH_RATIO = (float)IN_WIDTH / IN_HEIGHT;
         final double IN_SCALE_FACTOR = 0.007843;
         final double MEAN_VAL = 127.5;
-        final double THRESHOLD = 0.4;
+        final double THRESHOLD = 0.45;
         // Get a new frame
         Mat frame = inputFrame.rgba();
         Imgproc.cvtColor(frame, frame, Imgproc.COLOR_RGBA2RGB);
@@ -79,9 +81,12 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
         // Forward image through network.
         Mat blob = Dnn.blobFromImage(frame, IN_SCALE_FACTOR, new Size(IN_WIDTH, IN_HEIGHT), new Scalar(MEAN_VAL, MEAN_VAL, MEAN_VAL), true, false);
 
+        long start_time = System.currentTimeMillis();
         net.setInput(blob);
+
         Mat detections = net.forward();
-        Log.i(TAG, "get a result");
+//        Log.i(TAG, "get a result");
+        long detect_time = System.currentTimeMillis();
         int cols = frame.cols();
         int rows = frame.rows();
         Size cropSize;
@@ -102,6 +107,9 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
             double confidence = detections.get(i, 2)[0];
             if (confidence > THRESHOLD) {
                 int classId = (int)detections.get(i, 1)[0];
+                if(classNames[classId] != "door flame"){
+                    continue;
+                }
                 int xLeftBottom = (int)(detections.get(i, 3)[0] * cols);
                 int yLeftBottom = (int)(detections.get(i, 4)[0] * rows);
                 int xRightTop   = (int)(detections.get(i, 5)[0] * cols);
@@ -109,7 +117,7 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
                 // Draw rectangle around detected object.
                 Imgproc.rectangle(subFrame, new Point(xLeftBottom, yLeftBottom),
                         new Point(xRightTop, yRightTop),
-                        new Scalar(0, 255, 0));
+                        new Scalar(255, 128, 0), 2);
 //                Point p3 = new Point();
                 String label = classNames[classId] + ": " + confidence;
                 int[] baseLine = new int[1];
@@ -123,6 +131,11 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
                         Core.FONT_HERSHEY_SIMPLEX, 0.5, new Scalar(0, 0, 0));
             }
         }
+        long total_time = System.currentTimeMillis();
+
+        Log.i(TAG, "detect time " + String.valueOf(detect_time-start_time) + " s");
+        Log.i(TAG, "total time " + String.valueOf(total_time-start_time) + " s");
+
         return frame;
     }
     public void onCameraViewStopped() {}
@@ -149,8 +162,9 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
         return "";
     }
     private static final String TAG = "OpenCV/Sample/MobileNet";
+    // 修改此处标签名
     private static final String[] classNames = {"background",
-            "person", "door flame"};
+            "person", "door flame", "tvmonitor"};
     private Net net;
     private CameraBridgeViewBase mOpenCvCameraView;
 }
